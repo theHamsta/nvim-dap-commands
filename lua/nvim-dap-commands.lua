@@ -51,8 +51,8 @@ end
 local M = {}
 local defaults = {
   post_launch_commands = function()
-    local dap = require 'dap'
-    dap.repl.open()
+    --local dap = require 'dap'
+    --dap.repl.open()
   end,
   debuggers = {
     gdb = {
@@ -71,12 +71,23 @@ local defaults = {
           '--quiet',
           '-i',
           'dap',
+          '--eval-command',
+          'set print pretty on',
         },
         name = 'gdb',
-        stopOnEntry = false,
-        --initCommands = 'command script import "/home/stephan/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/etc/lldb_lookup.py"',
       },
       config = function(args)
+        args = vim.tbl_map(function(arg)
+          return vim.fn.expand(arg)
+        end, args)
+        if args[1] and vim.regex('\\v[.](c|cpp|cc|rs)$'):match_str(args[1]) then
+          vim.notify(
+            'Did you really mean to invoke the debugger with "'
+              .. args[1]
+              .. '"? GDB must be invoked with a compiled binary, not a source file.',
+            vim.log.levels.WARN
+          )
+        end
         return {
           type = 'rust',
           name = args[1],
@@ -84,8 +95,88 @@ local defaults = {
           program = table.remove(args, 1),
           args = args,
           cwd = vim.fn.getcwd(),
+          stopAtBeginningOfMainSubprogram = true,
+          repl_lang = 'cpp',
           --initCommands = get_init_commands(),
         }
+      end,
+    },
+    lldb_rust = {
+      cmd = 'DebugLldbRust',
+      adapter = {
+        type = 'executable',
+        attach = {
+          pidProperty = 'pid',
+          pidSelect = 'ask',
+        },
+        command = select_executable {
+          'lldb-dap-20',
+          'lldb-dap-19',
+          'lldb-vscode-18',
+          'lldb-vscode-17',
+          'lldb-vscode-16',
+          'lldb-vscode-15',
+          'lldb-vscode',
+        },
+        env = function()
+          local variables = {
+            LLDB_LAUNCH_FLAG_LAUNCH_IN_TTY = 'YES',
+          }
+          for k, v in pairs(vim.fn.environ()) do
+            table.insert(variables, string.format('%s=%s', k, v))
+          end
+          return variables
+        end,
+        name = 'lldb',
+      },
+      config = function(args)
+        args = vim.tbl_map(function(arg)
+          return vim.fn.expand(arg)
+        end, args)
+        if args[1] and vim.regex('\\v[.](c|cpp|cc|rs)$'):match_str(args[1]) then
+          vim.notify(
+            'Did you really mean to invoke the debugger with "'
+              .. args[1]
+              .. '"? LLDB must be invoked with a compiled binary, not a source file.',
+            vim.log.levels.WARN
+          )
+        end
+        if args and #args > 0 then
+          return {
+            type = 'rust',
+            name = args[1],
+            request = 'launch',
+            program = table.remove(args, 1),
+            env = ENV,
+            args = args,
+            cwd = vim.fn.getcwd(),
+            environment = {},
+            stopOnEntry = false,
+            externalConsole = true,
+            expressions = 'python',
+            initCommands = (function()
+              local commands = {}
+              table.insert(commands, 1, "br set -r '.*::main.*'")
+              if select_executable { 'rustc' } then
+                -- Find out where to look for the pretty printer Python module
+                local rustc_sysroot = vim.fn.trim(vim.fn.system 'rustc --print sysroot')
+
+                local script_import = 'command script import "' .. rustc_sysroot .. '/lib/rustlib/etc/lldb_lookup.py"'
+                local commands_file = rustc_sysroot .. '/lib/rustlib/etc/lldb_commands'
+
+                local file = io.open(commands_file, 'r')
+                if file then
+                  for line in file:lines() do
+                    table.insert(commands, line)
+                  end
+                  file:close()
+                end
+                table.insert(commands, 1, script_import)
+              end
+              return commands
+            end)(),
+          }
+        end
       end,
     },
     lldb = {
@@ -115,13 +206,19 @@ local defaults = {
           return variables
         end,
         name = 'lldb',
-        stopOnEntry = false,
-        --initCommands = 'command script import "/home/stephan/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/lib/rustlib/etc/lldb_lookup.py"',
       },
       config = function(args)
         args = vim.tbl_map(function(arg)
           return vim.fn.expand(arg)
         end, args)
+        if args[1] and vim.regex('\\v[.](c|cpp|cc|rs)$'):match_str(args[1]) then
+          vim.notify(
+            'Did you really mean to invoke the debugger with "'
+              .. args[1]
+              .. '"? LLDB must be invoked with a compiled binary, not a source file.',
+            vim.log.levels.WARN
+          )
+        end
         if args and #args > 0 then
           return {
             type = 'rust',
@@ -135,7 +232,7 @@ local defaults = {
             stopOnEntry = false,
             externalConsole = true,
             expressions = 'python',
-            --initCommands = get_init_commands(),
+            initCommands = { 'b main' },
           }
         end
       end,
@@ -144,6 +241,9 @@ local defaults = {
       cmd = 'Debugpy',
       adapter = python_adapter,
       config = function(args)
+        args = vim.tbl_map(function(arg)
+          return vim.fn.expand(arg)
+        end, args)
         return {
           type = 'python',
           name = args[1],
@@ -152,6 +252,7 @@ local defaults = {
           request = 'launch',
           program = table.remove(args, 1),
           args = args,
+          repl_lang = 'python',
           --pythonPath = function()
           --return "/usr/bin/python3"
           --end
