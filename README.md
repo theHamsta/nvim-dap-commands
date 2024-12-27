@@ -1,6 +1,6 @@
 # nvim-dap-commands
 
-Launch debug adapters via Vim commands.
+Launch debug adapters via Vim commands (via https://github.com/mfussenegger/nvim-dap).
 The configurations are very opinionated and primarily thought for my personal config.
 
 
