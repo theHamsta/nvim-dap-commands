@@ -110,8 +110,10 @@ local defaults = {
           pidSelect = 'ask',
         },
         command = select_executable {
+          'lldb-dap-21',
           'lldb-dap-20',
           'lldb-dap-19',
+          'lldb-dap',
           'lldb-vscode-18',
           'lldb-vscode-17',
           'lldb-vscode-16',
@@ -188,8 +190,10 @@ local defaults = {
           pidSelect = 'ask',
         },
         command = select_executable {
+          'lldb-dap-21',
           'lldb-dap-20',
           'lldb-dap-19',
+          'lldb-dap',
           'lldb-vscode-18',
           'lldb-vscode-17',
           'lldb-vscode-16',
