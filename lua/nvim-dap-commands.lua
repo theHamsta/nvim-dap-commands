@@ -55,6 +55,52 @@ local defaults = {
     --dap.repl.open()
   end,
   debuggers = {
+    cuda_gdb = {
+      cmd = 'DebugCuda',
+      adapter = {
+        type = 'executable',
+        attach = {
+          pidProperty = 'pid',
+          pidSelect = 'ask',
+        },
+        command = select_executable {
+          'cuda-gdb',
+          'gdb',
+        },
+        args = {
+          '--quiet',
+          '-i',
+          'dap',
+          '--eval-command',
+          'set print pretty on',
+        },
+        name = 'gdb',
+      },
+      config = function(args)
+        args = vim.tbl_map(function(arg)
+          return vim.fn.expand(arg)
+        end, args)
+        if args[1] and vim.regex('\\v[.](c|cpp|cc|rs|cu)$'):match_str(args[1]) then
+          vim.notify(
+            'Did you really mean to invoke the debugger with "'
+              .. args[1]
+              .. '"? GDB must be invoked with a compiled binary, not a source file.',
+            vim.log.levels.WARN
+          )
+        end
+        return {
+          type = 'cuda',
+          name = args[1],
+          request = 'launch',
+          program = table.remove(args, 1),
+          args = args,
+          cwd = vim.fn.getcwd(),
+          stopAtBeginningOfMainSubprogram = true,
+          repl_lang = 'cpp',
+          --initCommands = get_init_commands(),
+        }
+      end,
+    },
     gdb = {
       cmd = 'DebugGdb',
       adapter = {
